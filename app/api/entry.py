@@ -85,7 +85,7 @@ def create_entry(
     db.refresh(new_entry)
 
     background_tasks.add_task(run_sentiment, entry_id=new_entry.id, db=db)
-    return EntryOut.model_validate(new_entry)
+    return EntryOut.model_validate(new_entry).model_dump(exclude_none=True)
 
 
 @router.get("/", response_model=PaginatedEntryResponse)
