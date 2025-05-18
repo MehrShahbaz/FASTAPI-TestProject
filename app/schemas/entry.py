@@ -1,5 +1,6 @@
-from pydantic import BaseModel
+from pydantic import BaseModel, Field
 from datetime import datetime
+from typing import List
 
 
 class EntryBase(BaseModel):
@@ -15,5 +16,11 @@ class EntryOut(EntryBase):
     id: int
     created_at: datetime
 
-    class Config:
-        from_attributes = True
+    model_config = {"from_attributes": True}
+
+
+class PaginatedEntryResponse(BaseModel):
+    total: int
+    page: int
+    page_size: int
+    entries: List[EntryOut]
