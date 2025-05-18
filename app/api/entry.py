@@ -1,12 +1,18 @@
-from fastapi import APIRouter, Depends, HTTPException, Query
+from fastapi import APIRouter, Depends, HTTPException, Query, BackgroundTasks
+from datetime import datetime
 import json
 from sqlalchemy.orm import Session
-from app.schemas.entry import EntryCreate, EntryOut, PaginatedEntryResponse
+
 from app.models.entry import Entry
+from app.models.user import User
+
 from app.core.deps import get_db, get_current_user
 from app.core.cache import redis, make_cache_key
-from app.models.user import User
-from datetime import datetime
+
+from app.schemas.entry import EntryCreate, EntryOut, PaginatedEntryResponse
+from app.schemas.mood import Mood
+
+from app.services.sentiment import analyze_sentiment
 
 
 router = APIRouter(prefix="/api/v1/entries", tags=["entries"])
@@ -18,6 +24,7 @@ async def search_entries(
     start_date: str = None,
     end_date: str = None,
     tags: str = None,
+    mood: Mood = Query(None),
     db: Session = Depends(get_db),
     current_user: User = Depends(get_current_user),
 ):
@@ -49,6 +56,9 @@ async def search_entries(
         end = datetime.fromisoformat(end_date)
         query = query.filter(Entry.created_at <= end)
 
+    if mood:
+        query = query.filter(Entry.mood == mood)
+
     # if tags:
     #     tag_list = [tag.strip() for tag in tags.split(",")]
     #     query = query.join(Entry.tags).filter(Tag.name.in_(tag_list))
@@ -65,6 +75,7 @@ async def search_entries(
 @router.post("/", response_model=EntryOut)
 def create_entry(
     entry: EntryCreate,
+    background_tasks: BackgroundTasks,
     db: Session = Depends(get_db),
     current_user: User = Depends(get_current_user),
 ):
@@ -72,7 +83,9 @@ def create_entry(
     db.add(new_entry)
     db.commit()
     db.refresh(new_entry)
-    return new_entry
+
+    background_tasks.add_task(run_sentiment, entry_id=new_entry.id, db=db)
+    return EntryOut.model_validate(new_entry).model_dump(exclude_none=True)
 
 
 @router.get("/", response_model=PaginatedEntryResponse)
@@ -132,3 +145,10 @@ def delete_entry(
     db.delete(entry)
     db.commit()
     return {"message": "Deleted successfully"}
+
+
+def run_sentiment(entry_id: int, db: Session):
+    entry = db.query(Entry).filter(Entry.id == entry_id).first()
+    if entry:
+        entry.mood = analyze_sentiment(entry.content)
+        db.commit()
