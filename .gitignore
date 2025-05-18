@@ -48,3 +48,6 @@ alembic/versions/
 # OS files
 .DS_Store
 Thumbs.db
+
+commands.json
+.env
