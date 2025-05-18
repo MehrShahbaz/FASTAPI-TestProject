@@ -1,4 +1,4 @@
-from fastapi import APIRouter, Depends, HTTPException, Query, BackgroundTasks
+from fastapi import APIRouter, Depends, HTTPException, Query, BackgroundTasks, Request
 from datetime import datetime
 import json
 from sqlalchemy.orm import Session
@@ -20,6 +20,7 @@ router = APIRouter(prefix="/api/v1/entries", tags=["entries"])
 
 @router.get("/search", response_model=list[EntryOut])
 async def search_entries(
+    request: Request,
     q: str = None,
     start_date: str = None,
     end_date: str = None,

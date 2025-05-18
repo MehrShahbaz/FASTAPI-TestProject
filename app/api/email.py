@@ -1,7 +1,8 @@
-from fastapi import APIRouter, Depends, BackgroundTasks
+from fastapi import APIRouter, Depends, BackgroundTasks, Request
 from sqlalchemy.orm import Session
 
 from app.core.deps import get_current_user, get_db
+from app.core.rate_limiter import limiter
 from app.models.user import User
 from app.services.email_summary import send_summary_email
 
@@ -9,7 +10,9 @@ router = APIRouter(prefix="/api/v1/email", tags=["email"])
 
 
 @router.post("/summary")
+@limiter.limit("1/week")
 async def email_summary(
+    request: Request,
     backgroud_tasks: BackgroundTasks,
     db: Session = Depends(get_db),
     current_user: User = Depends(get_current_user),
